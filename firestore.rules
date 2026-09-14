@@ -49,20 +49,22 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidId(messageId) && isValidMuralMessage(incoming());
       allow update: if isValidId(messageId) && (
-        // Like reaction: updates only likes and likedBy
-        incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy'])
-        && incoming().likes is int
-        && incoming().likedBy is list
-        && incoming().likedBy.size() <= 500
+        isValidMuralMessage(incoming()) ||
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy'])
+          && incoming().likes is int
+          && incoming().likedBy is list
+          && incoming().likedBy.size() <= 500
+        )
       );
-      allow delete: if false;
+      allow delete: if true;
     }
 
     // Student Progress collection
     match /student_progress/{progressId} {
       allow read: if true;
       allow create, update: if isValidId(progressId) && isValidProgress(incoming());
-      allow delete: if false;
+      allow delete: if true;
     }
 
     // Connection testing

@@ -92,7 +92,7 @@ export const MuralView: React.FC<MuralViewProps> = ({
     // 2. Real-time Cloud Firestore subscription (Instant push to all computers)
     const unsubscribe = subscribeToMuralMessages(
       (liveMessages) => {
-        if (liveMessages && liveMessages.length > 0) {
+        if (Array.isArray(liveMessages)) {
           setMessages(liveMessages);
           setLikedIds((prev) => {
             const next = new Set(prev);

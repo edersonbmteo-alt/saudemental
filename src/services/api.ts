@@ -3,9 +3,13 @@ import {
   publishMessageToCloud,
   likeMessageInCloud,
   saveProgressToCloud,
+  deleteMuralMessageFromCloud,
+  updateMuralMessageInCloud,
+  clearAllStudentsProgressFromCloud,
   db,
 } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { BASE_EXISTING_STUDENTS } from "../data/persistedBaseData";
 
 const LOCAL_STORAGE_MESSAGES_KEY = "santanna_static_messages";
 const LOCAL_STORAGE_STUDENTS_KEY = "santanna_static_students";
@@ -401,10 +405,11 @@ export const api = {
       // Server offline
     }
 
-    // 3. Fallback to local cache if map is empty
+    // 3. Fallback to local cache or base existing students if map is empty
     if (studentMap.size === 0) {
       const local = getLocalStudents();
-      local.forEach((s) => {
+      const fallbackList = local.length > 0 ? local : BASE_EXISTING_STUDENTS;
+      fallbackList.forEach((s) => {
         const key = `${(s.studentName || "").toLowerCase().trim()}_${(s.studentClass || "").toLowerCase().trim()}`;
         studentMap.set(key, s);
       });
@@ -419,17 +424,25 @@ export const api = {
     return allStudents;
   },
 
-  // Teacher clear data
+  // Teacher clear data (clears from Cloud Firestore and local storage)
   async clearTeacherData(token: string) {
+    // 1. Clear from Cloud Firestore
     try {
-      const res = await fetch("/api/teacher/clear", {
+      await clearAllStudentsProgressFromCloud();
+    } catch (err) {
+      console.warn("[Cloud Sync] Error clearing Firestore progress:", err);
+    }
+
+    // 2. Also notify server if running
+    try {
+      await fetch("/api/teacher/clear", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) return await res.json();
     } catch {
       // Server offline
     }
+
     localStorage.removeItem(LOCAL_STORAGE_STUDENTS_KEY);
     return { success: true };
   },
@@ -439,32 +452,54 @@ export const api = {
     id: string,
     data: { message: string; author?: string; studentClass?: string }
   ): Promise<{ success: boolean; message?: SharedMessage; error?: string }> {
+    // 1. Update in Cloud Firestore
     try {
-      const res = await fetch(`/api/messages/${id}`, {
+      await updateMuralMessageInCloud(id, data.message, data.author, data.studentClass);
+    } catch (err) {
+      console.warn("[Cloud Sync] Error updating message in Firestore:", err);
+    }
+
+    // 2. Notify server if available
+    try {
+      await fetch(`/api/messages/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (res.ok) return await res.json();
     } catch {
       // Server offline
     }
 
     const current = getLocalMessages();
     const msg = current.find((m) => m.id === id);
-    if (!msg) return { success: false, error: "Mensagem não encontrada" };
-    msg.message = data.message;
-    if (data.author) msg.author = data.author;
-    if (data.studentClass) msg.studentClass = data.studentClass;
-    saveLocalMessages(current);
-    return { success: true, message: msg };
+    if (msg) {
+      msg.message = data.message;
+      if (data.author) msg.author = data.author;
+      if (data.studentClass) msg.studentClass = data.studentClass;
+      saveLocalMessages(current);
+      return { success: true, message: msg };
+    }
+    return { success: true };
   },
 
-  // Teacher delete message from mural
-  async deleteMuralMessage(id: string, token: string) {
+  // Teacher delete message from mural (deletes directly from Cloud Firestore)
+  async deleteMuralMessage(
+    id: string,
+    token: string
+  ): Promise<{ success: boolean; cloudDeleted?: boolean; error?: string }> {
+    let cloudDeleted = false;
+
+    // 1. Delete directly from Cloud Firestore (broadcasts instantly to all student workstations)
+    try {
+      cloudDeleted = await deleteMuralMessageFromCloud(id);
+    } catch (cloudErr) {
+      console.warn("[Cloud Sync] Firestore delete failed:", cloudErr);
+    }
+
+    // 2. Also notify server API if running in local mode
     try {
       const cleanToken = token.replace(/^Bearer\s+/i, "");
-      const res = await fetch(`/api/teacher/messages/${id}?token=${encodeURIComponent(cleanToken)}`, {
+      await fetch(`/api/teacher/messages/${id}?token=${encodeURIComponent(cleanToken)}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${cleanToken}`,
@@ -472,14 +507,15 @@ export const api = {
         },
         body: JSON.stringify({ token: cleanToken }),
       });
-      if (res.ok) return await res.json();
     } catch {
       // Server offline
     }
 
+    // 3. Update local storage cache
     const current = getLocalMessages().filter((m) => m.id !== id);
     saveLocalMessages(current);
-    return { success: true };
+
+    return { success: true, cloudDeleted };
   },
 
   // Send certificate by email

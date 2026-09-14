@@ -5,6 +5,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   getDoc,
   getDocFromServer,
   getDocs,
@@ -16,6 +17,7 @@ import {
 import { getAuth, signInAnonymously, onAuthStateChanged, User } from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
 import { SharedMessage, StudentDataRecord } from "../types";
+import { BASE_EXISTING_STUDENTS, BASE_EXISTING_MESSAGES } from "../data/persistedBaseData";
 
 // Initialize Firebase App singleton
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -74,45 +76,28 @@ export async function testConnection(): Promise<boolean> {
 ensureAuth().catch(() => {});
 testConnection().catch(() => {});
 
-const INITIAL_MESSAGES: SharedMessage[] = [
-  {
-    id: "msg_init_1",
-    author: "Ana Clara",
-    studentClass: "161",
-    message: "Você não precisa carregar tudo sozinho. Sempre haverá alguém disposto a estender a mão e te ouvir. 🌻",
-    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    likes: 14,
-    likedBy: [],
-  },
-  {
-    id: "msg_init_2",
-    author: "Gabriel Santos",
-    studentClass: "162",
-    message: "Assim como os girassóis buscam a luz mesmo nos dias nublados, mantenha a esperança no coração. Sua vida importa muito! 💛",
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    likes: 19,
-    likedBy: [],
-  },
-  {
-    id: "msg_init_3",
-    author: "Mariana Costa",
-    studentClass: "161",
-    message: "Respire fundo, um passo de cada vez. Você é mais forte e especial do que imagina! ✨",
-    timestamp: new Date().toISOString(),
-    likes: 11,
-    likedBy: [],
-  },
-];
-
 let hasSeeded = false;
-async function seedInitialMessagesIfEmpty() {
+export async function seedInitialDataIfEmpty() {
   if (hasSeeded) return;
   hasSeeded = true;
   try {
-    const snap = await getDocs(collection(db, "mural_messages"));
-    if (snap.empty) {
-      for (const msg of INITIAL_MESSAGES) {
+    await ensureAuth();
+    // 1. Seed Mural Messages if empty
+    const muralSnap = await getDocs(collection(db, "mural_messages"));
+    if (muralSnap.empty) {
+      for (const msg of BASE_EXISTING_MESSAGES) {
         await publishMessageToCloud(msg);
+      }
+    }
+
+    // 2. Seed Student Progress if empty
+    const studentSnap = await getDocs(collection(db, "student_progress"));
+    if (studentSnap.empty) {
+      for (const st of BASE_EXISTING_STUDENTS) {
+        await saveProgressToCloud({
+          ...st,
+          studentId: st.id,
+        });
       }
     }
   } catch (err) {
@@ -128,7 +113,7 @@ export function subscribeToMuralMessages(
   const messagesCol = collection(db, "mural_messages");
 
   // Attempt seeding if collection is newly created
-  seedInitialMessagesIfEmpty();
+  seedInitialDataIfEmpty();
 
   // Real-time Firestore snapshot listener
   const unsubscribe = onSnapshot(
@@ -136,8 +121,8 @@ export function subscribeToMuralMessages(
     (snapshot) => {
       if (snapshot.empty) {
         // Fallback to initial messages while first writes complete
-        callback(INITIAL_MESSAGES);
-        seedInitialMessagesIfEmpty();
+        callback(BASE_EXISTING_MESSAGES);
+        seedInitialDataIfEmpty();
         return;
       }
 
@@ -304,3 +289,61 @@ export async function saveProgressToCloud(
 
   await setDoc(docRef, payload, { merge: true });
 }
+
+// Delete message from Cloud Firestore (immediately propagates deletion to all devices via onSnapshot)
+export async function deleteMuralMessageFromCloud(messageId: string): Promise<boolean> {
+  try {
+    await ensureAuth();
+    const safeId = messageId.replace(/[^a-zA-Z0-9_\-]/g, "_");
+    const docRef = doc(db, "mural_messages", safeId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.error("[Firestore] Error deleting mural message:", err);
+    return false;
+  }
+}
+
+// Update message text or author in Cloud Firestore
+export async function updateMuralMessageInCloud(
+  messageId: string,
+  message: string,
+  author?: string,
+  studentClass?: string
+): Promise<boolean> {
+  try {
+    await ensureAuth();
+    const safeId = messageId.replace(/[^a-zA-Z0-9_\-]/g, "_");
+    const docRef = doc(db, "mural_messages", safeId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return false;
+    const existing = docSnap.data();
+    await setDoc(docRef, {
+      ...existing,
+      message,
+      ...(author ? { author } : {}),
+      ...(studentClass ? { studentClass } : {}),
+      editedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (err) {
+    console.error("[Firestore] Error updating mural message:", err);
+    return false;
+  }
+}
+
+// Clear all student progress from Cloud Firestore
+export async function clearAllStudentsProgressFromCloud(): Promise<boolean> {
+  try {
+    await ensureAuth();
+    const snap = await getDocs(collection(db, "student_progress"));
+    const deletes: Promise<void>[] = [];
+    snap.forEach((d) => deletes.push(deleteDoc(d.ref)));
+    await Promise.all(deletes);
+    return true;
+  } catch (err) {
+    console.error("[Firestore] Error clearing student progress:", err);
+    return false;
+  }
+}
+

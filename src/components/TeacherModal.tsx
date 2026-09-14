@@ -2,14 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   X,
   Lock,
-  Download,
   Search,
   Filter,
   CheckCircle2,
   FileSpreadsheet,
   Trash2,
   RefreshCw,
-  Info,
   MessageCircle,
   Calendar,
   User,
@@ -48,7 +46,7 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [confirmingDeleteMsgId, setConfirmingDeleteMsgId] = useState<string | null>(null);
   const [muralFeedback, setMuralFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"students" | "mural" | "instructions">("students");
+  const [activeTab, setActiveTab] = useState<"students" | "mural">("students");
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<StudentDataRecord | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -107,29 +105,16 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
       loadStudents(token);
       loadMuralMessages();
 
-      // Real-time listener for students progress across school lab
+      // Real-time listener for students progress across all devices (Firestore)
       const unsubProgress = subscribeToStudentsProgress((cloudStudents) => {
-        if (cloudStudents && cloudStudents.length > 0) {
-          setStudents((prev) => {
-            const map = new Map<string, StudentDataRecord>();
-            cloudStudents.forEach((s) => map.set(s.id, s));
-            prev.forEach((s) => {
-              if (!map.has(s.id)) map.set(s.id, s);
-            });
-            const merged = Array.from(map.values());
-            merged.sort(
-              (a, b) =>
-                new Date(b.updatedAt || b.lastUpdated || 0).getTime() -
-                new Date(a.updatedAt || a.lastUpdated || 0).getTime()
-            );
-            return merged;
-          });
+        if (Array.isArray(cloudStudents)) {
+          setStudents(cloudStudents);
         }
       });
 
-      // Real-time listener for mural messages
+      // Real-time listener for mural messages across all devices (Firestore)
       const unsubMural = subscribeToMuralMessages((liveMsgs) => {
-        if (liveMsgs && liveMsgs.length > 0) {
+        if (Array.isArray(liveMsgs)) {
           setMuralMessages(liveMsgs);
         }
       });
@@ -147,15 +132,75 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
     sessionStorage.removeItem("teacher_name");
   };
 
+  // Client-side CSV export with UTF-8 BOM - Works 100% on GitHub Pages without server dependency
   const handleExportCsv = () => {
-    if (!token) return;
-    window.location.href = `/api/teacher/export-csv?token=${encodeURIComponent(token)}`;
+    if (!students || students.length === 0) {
+      alert("Nenhum dado de estudante para exportar no momento.");
+      return;
+    }
+
+    const headers = [
+      "Estudante",
+      "Turma",
+      "Quiz",
+      "Palavras",
+      "Cruzadinha",
+      "Qualidades",
+      "Reflexão",
+      "Mensagem",
+      "Conclusão",
+    ];
+
+    const escapeCsv = (str: any) => {
+      if (!str) return '""';
+      const clean = String(str).replace(/"/g, '""').replace(/\r?\n/g, " ");
+      return `"${clean}"`;
+    };
+
+    const rows = students.map((s) => [
+      escapeCsv(s.studentName),
+      escapeCsv(s.studentClass),
+      escapeCsv(s.quizScore),
+      escapeCsv(s.wordSearchFound?.join(", ") || "0 palavras"),
+      escapeCsv(s.crosswordResult || "Pendente"),
+      escapeCsv(
+        [
+          `Reconhecidas: ${s.qualitiesSelected?.join(", ") || "Nenhuma"}`,
+          s.qualityRecognizedOwn ? `Própria: ${s.qualityRecognizedOwn}` : "",
+          s.qualityToDevelop ? `A Desenvolver: ${s.qualityToDevelop}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ")
+      ),
+      escapeCsv(s.wordsGoodReflection || "Não preenchido"),
+      escapeCsv(s.finalMessage || "Não preenchido"),
+      escapeCsv(
+        s.completed
+          ? `Concluído em ${new Date(s.updatedAt || s.lastUpdated || Date.now()).toLocaleString("pt-BR")}`
+          : `Em andamento (Desafio ${s.currentStep}/8)`
+      ),
+    ]);
+
+    // UTF-8 BOM (\uFEFF) for Microsoft Excel and Google Sheets compatibility with Portuguese accents
+    const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `Missao_Setembro_Amarelo_SantAnna_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleClearData = async () => {
     if (!token) return;
     const confirm = window.confirm(
-      "Atenção pedagógica: Deseja realmente zerar as respostas dos estudantes? Esta operação não poderá ser revertida."
+      "Atenção pedagógica: Deseja realmente zerar as respostas dos estudantes no banco de dados na nuvem? Esta operação não poderá ser revertida."
     );
     if (!confirm) return;
 
@@ -189,7 +234,7 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
     } catch {
       setMuralFeedback({
         type: "error",
-        text: "Erro de comunicação com o servidor ao excluir mensagem.",
+        text: "Erro de comunicação ao excluir mensagem.",
       });
     } finally {
       setDeletingMessageId(null);
@@ -392,17 +437,6 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
                 >
                   <span>🌻 Moderar Mural ({muralMessages.length})</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("instructions")}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === "instructions"
-                      ? "bg-[#005CA9] text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  Rede & Arquitetura
-                </button>
               </div>
 
               {activeTab === "mural" && (
@@ -452,7 +486,7 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
               )}
             </div>
 
-            {activeTab === "students" ? (
+            {activeTab === "students" && (
               <>
                 {/* Search and Filters */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -564,66 +598,6 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
                   Clique sobre qualquer linha para abrir a ficha completa do estudante.
                 </div>
               </>
-            ) : (
-              /* Network & Database Instructions tab */
-              <div className="flex-1 overflow-y-auto space-y-6 text-sm text-slate-600 pr-2 leading-relaxed">
-                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950">
-                  <h4 className="font-bold text-base text-slate-900 flex items-center gap-2 mb-2">
-                    <Info className="w-5 h-5 text-amber-700" />
-                    Funcionamento em Rede no Laboratório de Informática
-                  </h4>
-                  <p>
-                    A aplicação está estruturada com backend full-stack Node.js / Express. Todos os computadores do laboratório que abrem o endereço compartilham o mesmo servidor centralizado.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                    <h5 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-sky-100 text-[#005CA9] flex items-center justify-center text-xs font-bold">
-                        1
-                      </span>
-                      Armazenamento e Sincronismo Contínuo
-                    </h5>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      As respostas de cada aluno e as mensagens anônimas do mural são salvas de forma segura no disco do servidor em arquivos JSON. Isso garante sincronização instantânea entre as máquinas dos estudantes.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                    <h5 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold">
-                        2
-                      </span>
-                      Exportação Pronta para Excel / Planilhas
-                    </h5>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      O botão <strong>EXPORTAR CSV</strong> gera uma tabela completa com marca de ordem de bytes (UTF-8 BOM), preservando a acentuação e pontuação corretas no Microsoft Excel e Google Planilhas.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Package ZIP Download */}
-                <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h5 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                      <span>📦</span>
-                      Pacote Completo do Projeto (.ZIP)
-                    </h5>
-                    <p className="text-xs text-slate-600 mt-1">
-                      Faça o download do código-fonte completo, componentes e recursos visuais para backup institucional ou implantação local.
-                    </p>
-                  </div>
-                  <a
-                    href="/missao_setembro_amarelo_santanna.zip"
-                    download="missao_setembro_amarelo_santanna.zip"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#005CA9] hover:bg-[#004b8a] text-white font-bold text-xs tracking-wide shadow-xs transition-all whitespace-nowrap cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>BAIXAR PACOTE .ZIP</span>
-                  </a>
-                </div>
-              </div>
             )}
 
             {/* Moderar Mural Tab */}
