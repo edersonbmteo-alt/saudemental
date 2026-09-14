@@ -1,4 +1,5 @@
 import React from "react";
+import { getAssetUrl } from "../utils/assetPath";
 
 interface SantAnnaLogoProps {
   className?: string;
@@ -94,7 +95,7 @@ export const SantAnnaLogo: React.FC<SantAnnaLogoProps> = ({
   return (
     <div className={`inline-flex items-center select-none ${className}`}>
       <img
-        src="/logo_santanna.svg"
+        src={getAssetUrl("/logo_santanna.svg")}
         alt="Colégio Franciscano Sant'Anna"
         className="h-full w-auto object-contain max-h-full"
         loading="eager"

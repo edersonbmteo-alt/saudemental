@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { ArrowLeft, ArrowRight, RotateCcw, MousePointer, Info, Eye } from "lucide-react";
+import { getAssetUrl } from "../../utils/assetPath";
 
 interface Challenge3Props {
   onBack: () => void;
@@ -222,7 +223,7 @@ export const Challenge3SevenErrors: React.FC<Challenge3Props> = ({
           className="relative w-full overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-50 shadow-md select-none touch-none aspect-video"
         >
           <img
-            src="/seven_errors.jpg"
+            src={getAssetUrl("/seven_errors.jpg")}
             alt="Jogo dos 7 Erros - Setembro Amarelo"
             className="w-full h-full object-contain pointer-events-none select-none"
             draggable={false}
