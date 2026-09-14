@@ -1,0 +1,6 @@
+{
+  "name": "Missão Setembro Amarelo 🌻",
+  "description": "Site educacional interativo sobre o Setembro Amarelo do Colégio Franciscano Sant’Anna em Santa Maria - RS, com Professor Ederson Braga Mello.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

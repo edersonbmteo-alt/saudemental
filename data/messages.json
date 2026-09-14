@@ -1,0 +1,42 @@
+[
+  {
+    "id": "msg_1789357929345_s9eq",
+    "author": "Isabela Martins",
+    "studentClass": "61",
+    "message": "Valeu por estarem sempre ao meu lado nos momentos bons e difíceis!",
+    "timestamp": "2026-09-14T03:52:09.345Z",
+    "likes": 2
+  },
+  {
+    "id": "msg_1789357487608_e4xr",
+    "author": "Lucas Oliveira",
+    "studentClass": "62",
+    "message": "Obrigado por existir e fazer parte da nossa turma!",
+    "timestamp": "2026-09-14T03:44:47.608Z",
+    "likes": 1
+  },
+  {
+    "id": "msg-init-1",
+    "author": "Ana Clara",
+    "studentClass": "61",
+    "message": "Você não precisa carregar tudo sozinho. Sempre haverá alguém disposto a estender a mão e te ouvir.",
+    "timestamp": "2026-09-14T01:40:21.672Z",
+    "likes": 20
+  },
+  {
+    "id": "msg-init-2",
+    "author": "Gabriel Santos",
+    "studentClass": "62",
+    "message": "Assim como os girassóis buscam a luz mesmo nos dias nublados, mantenha a esperança no coração. Sua vida importa muito!",
+    "timestamp": "2026-09-14T02:40:21.673Z",
+    "likes": 18
+  },
+  {
+    "id": "msg-init-3",
+    "author": "Mariana Costa",
+    "studentClass": "63",
+    "message": "Respire fundo, um passo de cada vez. Você é mais forte e especial do que imagina!",
+    "timestamp": "2026-09-14T03:40:21.673Z",
+    "likes": 14
+  }
+]
