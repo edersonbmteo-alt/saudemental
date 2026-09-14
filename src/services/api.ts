@@ -1,4 +1,11 @@
 import { SharedMessage, StudentDataRecord } from "../types";
+import {
+  publishMessageToCloud,
+  likeMessageInCloud,
+  saveProgressToCloud,
+  db,
+} from "../lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const LOCAL_STORAGE_MESSAGES_KEY = "santanna_static_messages";
 const LOCAL_STORAGE_STUDENTS_KEY = "santanna_static_students";
@@ -94,14 +101,35 @@ function saveLocalStudent(record: Partial<StudentDataRecord> & { studentId: stri
 export const api = {
   // Start or resume session
   async startSession(studentName: string, studentClass: string) {
+    const cleanName = studentName.trim();
+    const cleanClass = studentClass.trim();
+    const studentId = `std_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // Sync to Cloud Firestore immediately
+    saveProgressToCloud({
+      studentId,
+      studentName: cleanName,
+      studentClass: cleanClass,
+      currentStep: 1,
+    }).catch((err) => console.warn("[Cloud Sync] startSession cloud error:", err));
+
     try {
       const res = await fetch("/api/session/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName, studentClass }),
+        body: JSON.stringify({ studentName: cleanName, studentClass: cleanClass }),
       });
       if (res.ok) {
-        return await res.json();
+        const serverData = await res.json();
+        if (serverData?.student) {
+          saveProgressToCloud({
+            studentId: serverData.student.id,
+            studentName: cleanName,
+            studentClass: cleanClass,
+            currentStep: serverData.student.currentStep || 1,
+          }).catch(() => {});
+          return serverData;
+        }
       }
     } catch {
       // Server offline (e.g. GitHub Pages static host)
@@ -109,15 +137,15 @@ export const api = {
 
     // Static fallback
     const student = {
-      id: `std_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      studentName,
-      studentClass,
+      id: studentId,
+      studentName: cleanName,
+      studentClass: cleanClass,
       currentStep: 1,
     };
     saveLocalStudent({
       studentId: student.id,
-      studentName,
-      studentClass,
+      studentName: cleanName,
+      studentClass: cleanClass,
       currentStep: 1,
     });
     return { success: true, student };
@@ -127,6 +155,11 @@ export const api = {
   async saveProgress(data: Partial<StudentDataRecord> & { studentId: string }) {
     // Always persist to local fallback
     saveLocalStudent(data);
+
+    // Sync directly to Cloud Firestore (Real-Time across all school computers)
+    saveProgressToCloud(data).catch((err) =>
+      console.warn("[Cloud Sync] saveProgress error:", err)
+    );
 
     try {
       const res = await fetch("/api/progress/save", {
@@ -144,6 +177,33 @@ export const api = {
   // Get shared wall messages
   async getMessages(): Promise<SharedMessage[]> {
     try {
+      // Try Cloud Firestore first for freshest live messages
+      const querySnapshot = await getDocs(collection(db, "mural_messages"));
+      if (!querySnapshot.empty) {
+        const cloudMessages: SharedMessage[] = [];
+        querySnapshot.forEach((docSnap) => {
+          const d = docSnap.data() as any;
+          cloudMessages.push({
+            id: docSnap.id,
+            author: d.author || "Anônimo",
+            studentClass: d.studentClass || "",
+            message: d.message || "",
+            timestamp: d.createdAt || d.timestamp || new Date().toISOString(),
+            likes: Number(d.likes || 0),
+            likedBy: Array.isArray(d.likedBy) ? d.likedBy : [],
+            editedAt: d.editedAt,
+          });
+        });
+        cloudMessages.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        return cloudMessages;
+      }
+    } catch (err) {
+      console.warn("[Cloud Sync] getMessages from Firestore note:", err);
+    }
+
+    try {
       const res = await fetch("/api/messages");
       if (res.ok) {
         const data = await res.json();
@@ -157,48 +217,82 @@ export const api = {
     return getLocalMessages();
   },
 
-  // Post message to shared wall
+  // Post message to shared wall (Syncs to Cloud Firestore in real time)
   async postMessage(
     message: string,
     author?: string,
     studentClass?: string
   ): Promise<SharedMessage | null> {
+    const cleanMsg = message.trim();
+    const cleanAuthor = author?.trim() || "Estudante Sant'Anna";
+    const cleanClass = studentClass?.trim() || "";
+    const msgId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const newMsg: SharedMessage = {
+      id: msgId,
+      author: cleanAuthor,
+      studentClass: cleanClass,
+      message: cleanMsg,
+      timestamp: new Date().toISOString(),
+      likes: 0,
+      likedBy: [],
+    };
+
+    // 1. Publish directly to Cloud Firestore (instant broadcast to all computers)
+    try {
+      await publishMessageToCloud(newMsg);
+    } catch (cloudErr) {
+      console.warn("[Cloud Sync] Firestore direct write error:", cloudErr);
+    }
+
+    // 2. Also save to server API
     try {
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, author, studentClass }),
+        body: JSON.stringify({ message: cleanMsg, author: cleanAuthor, studentClass: cleanClass }),
       });
       if (res.ok) {
         const data = await res.json();
-        return data.message;
+        if (data.message) return data.message;
       }
     } catch {
       // Server offline
     }
 
-    // Static fallback
-    const newMsg: SharedMessage = {
-      id: `msg-static-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      author: author?.trim() || "Estudante Guardião",
-      studentClass: studentClass?.trim() || "",
-      message: message.trim(),
-      timestamp: new Date().toISOString(),
-      likes: 1,
-      likedBy: [],
-    };
+    // 3. Static fallback
     const current = getLocalMessages();
     const updated = [newMsg, ...current];
     saveLocalMessages(updated);
     return newMsg;
   },
 
-  // Like / Sunflower reaction
+  // Like / Sunflower reaction in Real-Time Cloud
   async likeMessage(
     id: string,
     studentName?: string,
     studentClass?: string
   ): Promise<{ success: boolean; likes: number; alreadyLiked?: boolean } | null> {
+    const studentIdentifier = studentName
+      ? `${studentName.trim().toLowerCase()}_${(studentClass || "").trim().toLowerCase()}`
+      : "aluno_santanna";
+
+    // 1. Cloud Firestore Real-Time Update
+    try {
+      const cloudResult = await likeMessageInCloud(id, studentIdentifier);
+      if (cloudResult) {
+        // Also notify server in background
+        fetch(`/api/messages/${id}/like`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentName, studentClass }),
+        }).catch(() => {});
+        return cloudResult;
+      }
+    } catch (err) {
+      console.warn("[Cloud Sync] Cloud like fallback to local/server:", err);
+    }
+
     try {
       const res = await fetch(`/api/messages/${id}/like`, {
         method: "POST",
@@ -211,10 +305,6 @@ export const api = {
     }
 
     // Static fallback
-    const studentIdentifier = studentName
-      ? `${studentName.trim().toLowerCase()}_${(studentClass || "").trim().toLowerCase()}`
-      : "aluno_santanna";
-
     const current = getLocalMessages();
     const msg = current.find((m) => m.id === id);
     if (!msg) return null;
@@ -255,20 +345,78 @@ export const api = {
     return { success: false, error: "Código ou senha incorretos." };
   },
 
-  // Teacher get students
+  // Teacher get students (Aggregates from Cloud Firestore and server)
   async getTeacherStudents(token: string): Promise<StudentDataRecord[]> {
+    const studentMap = new Map<string, StudentDataRecord>();
+
+    // 1. Fetch from Cloud Firestore
+    try {
+      const snap = await getDocs(collection(db, "student_progress"));
+      snap.forEach((docSnap) => {
+        const d = docSnap.data() as any;
+        const key = `${(d.studentName || "").toLowerCase().trim()}_${(d.studentClass || "").toLowerCase().trim()}`;
+        studentMap.set(key, {
+          id: docSnap.id,
+          studentName: d.studentName || "Aluno",
+          studentClass: d.studentClass || "",
+          currentStep: Number(d.currentStep || d.currentChallenge || 1),
+          quizScore: d.quizScore || "Não realizado",
+          quizDetails: d.quizDetails || "",
+          wordSearchFound: Array.isArray(d.wordSearchFound) ? d.wordSearchFound : [],
+          sevenErrorsMarked: Number(d.sevenErrorsMarked || 0),
+          wordsGoodSelected: Array.isArray(d.wordsGoodSelected) ? d.wordsGoodSelected : [],
+          wordsGoodReflection: d.wordsGoodReflection || "",
+          crosswordResult: d.crosswordResult || "Pendente",
+          qualitiesSelected: Array.isArray(d.qualitiesSelected) ? d.qualitiesSelected : [],
+          qualityRecognizedOwn: d.qualityRecognizedOwn || "",
+          qualityToDevelop: d.qualityToDevelop || "",
+          finalMessage: d.finalMessage || "",
+          completed: Boolean(d.completed),
+          startedAt: d.startedAt || d.updatedAt || new Date().toISOString(),
+          updatedAt: d.updatedAt || new Date().toISOString(),
+          lastUpdated: d.updatedAt || new Date().toISOString(),
+        });
+      });
+    } catch (err) {
+      console.warn("[Cloud Sync] getTeacherStudents from Firestore note:", err);
+    }
+
+    // 2. Fetch from server API
     try {
       const res = await fetch("/api/teacher/students", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        return data.students || [];
+        if (Array.isArray(data.students)) {
+          data.students.forEach((s: StudentDataRecord) => {
+            const key = `${(s.studentName || "").toLowerCase().trim()}_${(s.studentClass || "").toLowerCase().trim()}`;
+            if (!studentMap.has(key)) {
+              studentMap.set(key, s);
+            }
+          });
+        }
       }
     } catch {
       // Server offline
     }
-    return getLocalStudents();
+
+    // 3. Fallback to local cache if map is empty
+    if (studentMap.size === 0) {
+      const local = getLocalStudents();
+      local.forEach((s) => {
+        const key = `${(s.studentName || "").toLowerCase().trim()}_${(s.studentClass || "").toLowerCase().trim()}`;
+        studentMap.set(key, s);
+      });
+    }
+
+    const allStudents = Array.from(studentMap.values());
+    allStudents.sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.lastUpdated || 0).getTime() -
+        new Date(a.updatedAt || a.lastUpdated || 0).getTime()
+    );
+    return allStudents;
   },
 
   // Teacher clear data

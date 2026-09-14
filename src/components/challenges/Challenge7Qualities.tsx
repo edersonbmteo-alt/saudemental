@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, ArrowRight, Star, Check, Compass } from "lucide-react";
+import { Francisquinho } from "../Francisquinho";
 
 interface Challenge7Props {
   onBack: () => void;
@@ -73,14 +74,14 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
         {/* Title Header */}
         <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 text-2xl shrink-0">
-              🌟
+            <div className="shrink-0">
+              <Francisquinho className="w-14 h-auto" pose="holding_heart" />
             </div>
             <div>
               <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">
                 Etapa 7 de 8 • Autoconhecimento
               </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Outfit']">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-['Outfit']">
                 Reconhecendo Nossas Forças & Virtudes
               </h2>
             </div>
@@ -94,14 +95,14 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
           </div>
         </div>
 
-        <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+        <p className="text-sm sm:text-base text-slate-800 mb-6 leading-relaxed font-normal">
           Cuidar da própria saúde emocional começa pelo reconhecimento generoso de quem nós somos. Cada ser humano carrega talentos, dons e virtudes que tornam a convivência escolar mais rica e humana.
         </p>
 
         {/* Qualities Grid Selection */}
         <div className="mb-8">
-          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Star className="w-3.5 h-3.5 text-amber-500" />
+          <label className="block text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Star className="w-4 h-4 text-amber-500" />
             1. Assinale as características que você reconhece em sua personalidade:
           </label>
 
@@ -113,14 +114,14 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
                   key={quality}
                   type="button"
                   onClick={() => toggleQuality(quality)}
-                  className={`p-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-between gap-1.5 cursor-pointer ${
+                  className={`p-3 sm:p-3.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 flex items-center justify-between gap-1.5 cursor-pointer ${
                     isSelected
-                      ? "bg-amber-400 text-slate-950 font-bold shadow-xs ring-2 ring-amber-300 scale-[1.02]"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs"
+                      ? "bg-amber-300 border-2 border-amber-500 text-slate-950 font-black shadow-xs ring-2 ring-amber-200 scale-[1.02]"
+                      : "bg-white hover:bg-amber-50/70 text-slate-800 border border-slate-300 hover:border-amber-400 shadow-2xs"
                   }`}
                 >
                   <span className="truncate">{quality}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 shrink-0 stroke-[3]" />}
+                  {isSelected && <Check className="w-4 h-4 shrink-0 stroke-[3] text-slate-950" />}
                 </button>
               );
             })}
@@ -129,16 +130,16 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
 
         {/* Deep reflection fields */}
         <div className="pt-6 border-t border-slate-100 space-y-5">
-          <div className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+          <div className="text-sm sm:text-base font-extrabold text-slate-950 flex items-center gap-2">
             <Compass className="w-5 h-5 text-[#005CA9]" />
             2. Olhar Pessoal & Plano de Crescimento:
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200">
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 shadow-2xs">
               <label
                 htmlFor="input-qualidade-reconhecida"
-                className="block text-xs sm:text-sm font-bold text-slate-900 mb-2"
+                className="block text-xs sm:text-sm font-extrabold text-slate-950 mb-2"
               >
                 Uma qualidade que você reconhece e valoriza em si:
               </label>
@@ -148,14 +149,14 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
                 value={qualityRecognized}
                 onChange={(e) => setQualityRecognized(e.target.value)}
                 placeholder="Ex: Valorizo minha capacidade de ser leal aos amigos e ouvir quem está em um momento difícil..."
-                className="w-full p-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all shadow-2xs"
+                className="w-full p-3.5 rounded-xl bg-white border-2 border-slate-200 text-slate-900 placeholder-slate-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all shadow-2xs font-medium"
               />
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200">
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 shadow-2xs">
               <label
                 htmlFor="input-qualidade-desenvolver"
-                className="block text-xs sm:text-sm font-bold text-[#005CA9] mb-2"
+                className="block text-xs sm:text-sm font-extrabold text-[#005CA9] mb-2"
               >
                 Uma virtude que você gostaria de aprimorar ainda mais:
               </label>
@@ -165,7 +166,7 @@ export const Challenge7Qualities: React.FC<Challenge7Props> = ({
                 value={qualityToDevelop}
                 onChange={(e) => setQualityToDevelop(e.target.value)}
                 placeholder="Ex: Quero exercitar mais a paciência nas horas de estresse e ter mais calma para ouvir opiniões diferentes..."
-                className="w-full p-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-[#005CA9] transition-all shadow-2xs"
+                className="w-full p-3.5 rounded-xl bg-white border-2 border-slate-200 text-slate-900 placeholder-slate-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-[#005CA9] transition-all shadow-2xs font-medium"
               />
             </div>
           </div>

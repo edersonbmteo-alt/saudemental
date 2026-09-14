@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidMuralMessage(data) {
+      return data.keys().hasAll(['id', 'author', 'studentClass', 'message', 'likes', 'likedBy', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.author is string && data.author.size() > 0 && data.author.size() <= 100
+        && data.studentClass is string && data.studentClass.size() > 0 && data.studentClass.size() <= 50
+        && data.message is string && data.message.size() > 0 && data.message.size() <= 600
+        && data.likes is int && data.likes >= 0
+        && data.likedBy is list && data.likedBy.size() <= 500
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidProgress(data) {
+      return data.keys().hasAll(['studentName', 'studentClass', 'completedChallenges', 'currentChallenge', 'score', 'updatedAt'])
+        && data.studentName is string && data.studentName.size() > 0 && data.studentName.size() <= 100
+        && data.studentClass is string && data.studentClass.size() > 0 && data.studentClass.size() <= 50
+        && data.completedChallenges is list && data.completedChallenges.size() <= 20
+        && data.currentChallenge is int
+        && data.score is int
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    // Mural Messages collection (Real-time collaborative mural)
+    match /mural_messages/{messageId} {
+      allow read: if true;
+      allow create: if isValidId(messageId) && isValidMuralMessage(incoming());
+      allow update: if isValidId(messageId) && (
+        // Like reaction: updates only likes and likedBy
+        incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy'])
+        && incoming().likes is int
+        && incoming().likedBy is list
+        && incoming().likedBy.size() <= 500
+      );
+      allow delete: if false;
+    }
+
+    // Student Progress collection
+    match /student_progress/{progressId} {
+      allow read: if true;
+      allow create, update: if isValidId(progressId) && isValidProgress(incoming());
+      allow delete: if false;
+    }
+
+    // Connection testing
+    match /test/{testId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

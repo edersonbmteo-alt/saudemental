@@ -48,6 +48,11 @@ export default function App() {
   const [qualityToDevelop, setQualityToDevelop] = useState("");
   const [finalMessage, setFinalMessage] = useState("");
 
+  // Garante que SEMPRE comece no topo da página ao iniciar uma nova etapa ou tela
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [currentStep, view]);
+
   // Check saved session in browser
   useEffect(() => {
     try {
@@ -68,6 +73,13 @@ export default function App() {
       console.warn("Could not parse saved session", e);
     }
   }, []);
+
+  // Sempre começar em cima ao trocar de etapa
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [currentStep, view]);
 
   // Sync session state to storage
   const updateSessionStep = (nextStep: number) => {

@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "MuralMessage": {
+      "title": "Mural Message",
+      "description": "Mensagem de acolhimento e valorização da vida publicada no mural colaborativo em tempo real",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "author": { "type": "string", "maxLength": 100 },
+        "studentClass": { "type": "string", "maxLength": 50 },
+        "message": { "type": "string", "maxLength": 600 },
+        "likes": { "type": "integer" },
+        "likedBy": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "isOfficial": { "type": "boolean" }
+      },
+      "required": ["id", "author", "studentClass", "message", "likes", "likedBy", "createdAt"]
+    },
+    "StudentProgress": {
+      "title": "Student Progress",
+      "description": "Registro de progresso e desafios concluídos pelos alunos",
+      "type": "object",
+      "properties": {
+        "studentName": { "type": "string", "maxLength": 100 },
+        "studentClass": { "type": "string", "maxLength": 50 },
+        "completedChallenges": { "type": "array" },
+        "currentChallenge": { "type": "integer" },
+        "score": { "type": "integer" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["studentName", "studentClass", "completedChallenges", "currentChallenge", "score", "updatedAt"]
+    },
+    "ConnectionTest": {
+      "title": "Connection Test",
+      "description": "Documento de teste de conexão com o Firestore",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["status"]
+    }
+  },
+  "firestore": {
+    "/mural_messages/{messageId}": {
+      "schema": "MuralMessage",
+      "description": "Mural colaborativo em tempo real sincronizado entre todas as turmas e computadores"
+    },
+    "/student_progress/{progressId}": {
+      "schema": "StudentProgress",
+      "description": "Sincronização do progresso dos alunos nos computadores da escola"
+    },
+    "/test/{testId}": {
+      "schema": "ConnectionTest",
+      "description": "Verificação de conectividade com a nuvem"
+    }
+  }
+}

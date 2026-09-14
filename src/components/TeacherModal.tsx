@@ -14,9 +14,11 @@ import {
   Calendar,
   User,
   Hash,
+  Cloud,
 } from "lucide-react";
 import { StudentDataRecord, SharedMessage } from "../types";
 import { api } from "../services/api";
+import { subscribeToStudentsProgress, subscribeToMuralMessages } from "../lib/firebase";
 import { SantAnnaLogo } from "./SantAnnaLogo";
 
 interface TeacherModalProps {
@@ -104,6 +106,38 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
     if (isOpen && token) {
       loadStudents(token);
       loadMuralMessages();
+
+      // Real-time listener for students progress across school lab
+      const unsubProgress = subscribeToStudentsProgress((cloudStudents) => {
+        if (cloudStudents && cloudStudents.length > 0) {
+          setStudents((prev) => {
+            const map = new Map<string, StudentDataRecord>();
+            cloudStudents.forEach((s) => map.set(s.id, s));
+            prev.forEach((s) => {
+              if (!map.has(s.id)) map.set(s.id, s);
+            });
+            const merged = Array.from(map.values());
+            merged.sort(
+              (a, b) =>
+                new Date(b.updatedAt || b.lastUpdated || 0).getTime() -
+                new Date(a.updatedAt || a.lastUpdated || 0).getTime()
+            );
+            return merged;
+          });
+        }
+      });
+
+      // Real-time listener for mural messages
+      const unsubMural = subscribeToMuralMessages((liveMsgs) => {
+        if (liveMsgs && liveMsgs.length > 0) {
+          setMuralMessages(liveMsgs);
+        }
+      });
+
+      return () => {
+        unsubProgress();
+        unsubMural();
+      };
     }
   }, [isOpen, token]);
 
@@ -214,6 +248,13 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
 
           <div className="flex items-center gap-2">
             {token && (
+              <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Nuvem em Tempo Real</span>
+              </div>
+            )}
+            {token && (
               <button
                 type="button"
                 onClick={handleLogout}
@@ -299,9 +340,6 @@ export const TeacherModal: React.FC<TeacherModalProps> = ({ isOpen, onClose }) =
                   required
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:bg-white transition-all shadow-2xs"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  A senha definida para acesso é <strong>Santanna@26</strong>.
-                </span>
               </div>
 
               {loginError && (

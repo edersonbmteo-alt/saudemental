@@ -11,10 +11,13 @@ import {
   Smile,
   Edit3,
   Check,
+  Cloud,
 } from "lucide-react";
 import { SharedMessage } from "../types";
 import { api } from "../services/api";
+import { subscribeToMuralMessages } from "../lib/firebase";
 import { SantAnnaLogo } from "./SantAnnaLogo";
+import { Francisquinho } from "./Francisquinho";
 
 interface MuralViewProps {
   studentName?: string;
@@ -41,7 +44,9 @@ export const MuralView: React.FC<MuralViewProps> = ({
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const editSectionRef = useRef<HTMLDivElement>(null);
 
-  // Student identifier key for likes tracking
+  // Filter state: 'myClass' or 'all'
+  const [filterMode, setFilterMode] = useState<"myClass" | "all">("all");
+
   const studentKey = studentName
     ? `${studentName.trim().toLowerCase()}_${(studentClass || "").trim().toLowerCase()}`
     : "aluno_santanna";
@@ -81,11 +86,41 @@ export const MuralView: React.FC<MuralViewProps> = ({
   };
 
   useEffect(() => {
-    fetchMessages();
+    // 1. Initial immediate load
+    fetchMessages(true);
+
+    // 2. Real-time Cloud Firestore subscription (Instant push to all computers)
+    const unsubscribe = subscribeToMuralMessages(
+      (liveMessages) => {
+        if (liveMessages && liveMessages.length > 0) {
+          setMessages(liveMessages);
+          setLikedIds((prev) => {
+            const next = new Set(prev);
+            liveMessages.forEach((m) => {
+              if (m.likedBy && m.likedBy.includes(studentKey)) {
+                next.add(m.id);
+              }
+            });
+            return next;
+          });
+        }
+        setLoading(false);
+        setRefreshing(false);
+      },
+      (err) => {
+        console.warn("[MuralView] Live Firestore fallback note:", err);
+      }
+    );
+
+    // Fallback light interval (15s) in case socket momentarily pauses
     const interval = setInterval(() => {
       fetchMessages(true);
-    }, 5000);
-    return () => clearInterval(interval);
+    }, 15000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [studentKey]);
 
   // Find the student's unique message on the mural
@@ -101,6 +136,18 @@ export const MuralView: React.FC<MuralViewProps> = ({
   );
 
   const handleLike = async (id: string) => {
+    // Verificar se é a própria mensagem do aluno
+    const targetMsg = messages.find((m) => m.id === id);
+    if (targetMsg) {
+      const isOwn =
+        (myMessage && targetMsg.id === myMessage.id) ||
+        (Boolean(studentName) &&
+          (targetMsg.author || "").trim().toLowerCase() === (studentName || "").trim().toLowerCase());
+      if (isOwn) {
+        return;
+      }
+    }
+
     if (likedIds.has(id)) return;
 
     // Record like locally so button is instantly disabled
@@ -193,48 +240,49 @@ export const MuralView: React.FC<MuralViewProps> = ({
     setNewMsgText((prev) => prev + emoji);
   };
 
-  // Strictly filter messages by the student's class
-  const classFilteredMessages = studentClass
-    ? messages.filter(
-        (m) =>
-          m.studentClass &&
-          m.studentClass.trim().toLowerCase() === studentClass.trim().toLowerCase()
-      )
-    : messages;
+  // Displayed messages based on filterMode:
+  const displayedMessages =
+    filterMode === "myClass" && studentClass
+      ? messages.filter(
+          (m) =>
+            m.studentClass &&
+            m.studentClass.trim().toLowerCase() === studentClass.trim().toLowerCase()
+        )
+      : messages;
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8">
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 p-6 sm:p-10 shadow-xl shadow-slate-200/40 mb-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold tracking-wide uppercase mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>
-                {studentClass
-                  ? `Mural Exclusivo • Turma ${studentClass}`
-                  : "Espaço Coletivo de Acolhimento"}
-              </span>
+          <div className="flex items-center gap-4">
+            <div className="shrink-0 hidden sm:block">
+              <Francisquinho className="w-20 h-auto" pose="waving" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-['Outfit'] flex items-center gap-3">
-              <span>🌻</span>
-              <span>
-                Mural da Esperança {studentClass ? `• Turma ${studentClass}` : ""}
-              </span>
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
-              {studentClass ? (
-                <>
-                  Exibindo exclusivamente as mensagens de apoio e incentivo compartilhadas pelos
-                  colegas da <strong>Turma {studentClass}</strong> no Colégio Franciscano Sant’Anna.
-                </>
-              ) : (
-                <>
-                  Mensagens de apoio e encorajamento compartilhadas pelos estudantes no laboratório do
-                  Colégio Franciscano Sant’Anna. Cada palavra aqui nos recorda que ninguém caminha sozinho.
-                </>
-              )}
-            </p>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold tracking-wide uppercase">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>
+                    {studentClass
+                      ? `Mural Fraterno • Turma ${studentClass}`
+                      : "Espaço Coletivo de Acolhimento"}
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>100% Online na Nuvem</span>
+                </div>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-['Outfit'] flex items-center gap-3">
+                <span>🌻</span>
+                <span>Mural da Esperança</span>
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+                Mensagens de afeto, luz e acolhimento compartilhadas pelos estudantes no Colégio Franciscano Sant’Anna. Cada palavra aqui nos recorda que ninguém caminha sozinho!
+              </p>
+            </div>
           </div>
 
           {/* Quick Actions */}
@@ -264,19 +312,37 @@ export const MuralView: React.FC<MuralViewProps> = ({
           </div>
         </div>
 
-        {/* Live sync banner */}
-        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+        {/* Tab Filters: Todas as Turmas vs Minha Turma */}
+        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-medium">
-              {studentClass
-                ? `Exibindo ${classFilteredMessages.length} mensagem(ns) da Turma ${studentClass}`
-                : "Sincronização em tempo real entre todos os computadores"}
-            </span>
+            <button
+              type="button"
+              onClick={() => setFilterMode("all")}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                filterMode === "all"
+                  ? "bg-[#005CA9] text-white shadow-xs"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+              }`}
+            >
+              🌻 Todas as Mensagens ({messages.length})
+            </button>
+            {studentClass && (
+              <button
+                type="button"
+                onClick={() => setFilterMode("myClass")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  filterMode === "myClass"
+                    ? "bg-[#005CA9] text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                🏫 Minha Turma ({studentClass})
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-slate-500 font-medium">
             <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>Cada aluno pode reagir com 1 girassol por publicação</span>
+            <span>Envie 1 girassol de apoio para as mensagens dos seus colegas</span>
           </div>
         </div>
       </div>
@@ -461,11 +527,13 @@ export const MuralView: React.FC<MuralViewProps> = ({
           <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
           <span className="font-medium">Carregando mensagens da turma...</span>
         </div>
-      ) : classFilteredMessages.length === 0 ? (
+      ) : displayedMessages.length === 0 ? (
         <div className="py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-200 p-8 shadow-xs">
           <span className="text-4xl mb-2 block">🌻</span>
           <p className="text-base font-bold text-slate-800">
-            Nenhuma mensagem da Turma {studentClass || ""} publicada ainda.
+            {filterMode === "myClass" && studentClass
+              ? `Nenhuma mensagem da Turma ${studentClass} encontrada.`
+              : "Nenhuma mensagem no mural ainda."}
           </p>
           <p className="text-xs text-slate-500 mt-1">
             Seja o primeiro a deixar uma palavra de carinho e esperança para seus colegas!
@@ -473,7 +541,7 @@ export const MuralView: React.FC<MuralViewProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {classFilteredMessages.map((msg, index) => {
+          {displayedMessages.map((msg, index) => {
             const hasLiked =
               likedIds.has(msg.id) ||
               (Boolean(msg.likedBy) && msg.likedBy!.includes(studentKey));
@@ -541,10 +609,21 @@ export const MuralView: React.FC<MuralViewProps> = ({
                   “{msg.message}”
                 </p>
 
-                {/* Bottom Card Footer: Sunflower Like (1 like per student) */}
+                {/* Bottom Card Footer: Sunflower Like (1 like per student, cannot like own post) */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                   <span className="text-xs text-slate-500 font-semibold">Valorização da Vida</span>
-                  {hasLiked ? (
+                  {isMyPost ? (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50/80 border border-amber-200/80 text-xs font-semibold text-amber-900 shadow-2xs select-none"
+                      title="Esta é a sua mensagem. Você pode curtir as mensagens dos seus colegas!"
+                    >
+                      <span className="text-sm">🌻</span>
+                      <span className="font-bold">{msg.likes || 0}</span>
+                      <span className="text-[10px] text-amber-800 bg-amber-200/60 px-1.5 py-0.5 rounded font-medium">
+                        Sua publicação
+                      </span>
+                    </div>
+                  ) : hasLiked ? (
                     <button
                       type="button"
                       disabled

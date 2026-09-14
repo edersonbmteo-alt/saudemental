@@ -1,11 +1,51 @@
 [
   {
+    "id": "msg_1789406254058_hk11",
+    "message": "Felicidade é ficar com sua companhia!🌻💛✨🌟💪☀️🕊️🌈💖🙏💐🎉",
+    "author": "Foi",
+    "studentClass": "545",
+    "timestamp": "2026-09-14T17:17:34.058Z",
+    "likes": 1,
+    "likedBy": [
+      "foi_545"
+    ]
+  },
+  {
+    "id": "msg_1789405523199_x1ap",
+    "message": "dadadadad🙏🌈🕊️",
+    "author": "Paulo",
+    "studentClass": "184",
+    "timestamp": "2026-09-14T17:05:23.199Z",
+    "likes": 2,
+    "likedBy": [
+      "paulo_184",
+      "foi_545"
+    ]
+  },
+  {
+    "id": "msg_1789404290463_q269",
+    "message": "adadadad😊😊😊",
+    "author": "Paulo",
+    "studentClass": "181",
+    "timestamp": "2026-09-14T16:44:50.463Z",
+    "likes": 2,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184"
+    ],
+    "editedAt": "2026-09-14T17:00:27.822Z"
+  },
+  {
     "id": "msg_1789357929345_s9eq",
     "author": "Isabela Martins",
     "studentClass": "61",
     "message": "Valeu por estarem sempre ao meu lado nos momentos bons e difíceis!",
     "timestamp": "2026-09-14T03:52:09.345Z",
-    "likes": 2
+    "likes": 4,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184"
+    ]
   },
   {
     "id": "msg_1789357487608_e4xr",
@@ -13,7 +53,11 @@
     "studentClass": "62",
     "message": "Obrigado por existir e fazer parte da nossa turma!",
     "timestamp": "2026-09-14T03:44:47.608Z",
-    "likes": 1
+    "likes": 3,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184"
+    ]
   },
   {
     "id": "msg-init-1",
@@ -21,7 +65,11 @@
     "studentClass": "61",
     "message": "Você não precisa carregar tudo sozinho. Sempre haverá alguém disposto a estender a mão e te ouvir.",
     "timestamp": "2026-09-14T01:40:21.672Z",
-    "likes": 20
+    "likes": 22,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184"
+    ]
   },
   {
     "id": "msg-init-2",
@@ -29,7 +77,11 @@
     "studentClass": "62",
     "message": "Assim como os girassóis buscam a luz mesmo nos dias nublados, mantenha a esperança no coração. Sua vida importa muito!",
     "timestamp": "2026-09-14T02:40:21.673Z",
-    "likes": 18
+    "likes": 20,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184"
+    ]
   },
   {
     "id": "msg-init-3",
@@ -37,6 +89,11 @@
     "studentClass": "63",
     "message": "Respire fundo, um passo de cada vez. Você é mais forte e especial do que imagina!",
     "timestamp": "2026-09-14T03:40:21.673Z",
-    "likes": 14
+    "likes": 17,
+    "likedBy": [
+      "paulo_181",
+      "paulo_184",
+      "foi_545"
+    ]
   }
 ]

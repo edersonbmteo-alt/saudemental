@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Send, Sparkles, User, Smile } from "lucide-react";
 import confetti from "canvas-confetti";
+import { Francisquinho } from "../Francisquinho";
 
 interface Challenge8Props {
   onBack: () => void;
@@ -53,14 +54,14 @@ export const Challenge8Message: React.FC<Challenge8Props> = ({
         {/* Title Header */}
         <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 text-2xl shrink-0">
-              💌
+            <div className="shrink-0">
+              <Francisquinho className="w-14 h-auto" pose="holding_heart" />
             </div>
             <div>
               <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">
                 Etapa 8 de 8 • Conclusão da Missão
               </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-['Outfit']">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-['Outfit']">
                 Mensagem de Apoio & Esperança
               </h2>
             </div>
@@ -68,21 +69,21 @@ export const Challenge8Message: React.FC<Challenge8Props> = ({
         </div>
 
         {/* Prompt description */}
-        <div className="mb-6 p-5 rounded-2xl bg-amber-50/80 border border-amber-200/80">
-          <p className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+        <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-amber-50/90 border-2 border-amber-200 shadow-2xs">
+          <p className="text-base sm:text-lg font-black text-slate-950 leading-snug">
             “Escreva uma mensagem de luz e incentivo que possa fazer a diferença no dia de quem estiver passando por um momento delicado.”
           </p>
-          <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-700 mt-2 leading-relaxed font-medium">
             Imagine o que você gostaria de ouvir quando se sente cansado(a) ou inseguro(a). Sua mensagem fará parte do <strong>Mural da Esperança</strong> do Colégio Franciscano Sant’Anna.
           </p>
         </div>
 
         {/* Author Notice (Non-anonymous as requested) */}
-        <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-slate-700">
-          <User className="w-4 h-4 text-[#005CA9] shrink-0" />
+        <div className="mb-6 flex items-center gap-3 px-4.5 py-3 rounded-2xl bg-sky-50 border-2 border-sky-200 text-xs sm:text-sm text-slate-900 shadow-2xs">
+          <User className="w-5 h-5 text-[#005CA9] shrink-0" />
           <span>
             <strong>Publicação com sua Autoria:</strong> Sua mensagem será assinada por{" "}
-            <strong className="text-[#005CA9]">{studentName || "Estudante Sant’Anna"}</strong>
+            <strong className="text-[#005CA9] font-black">{studentName || "Estudante Sant’Anna"}</strong>
             {studentClass ? ` (Turma ${studentClass})` : ""}, para inspirar e acolher os colegas no Mural da Esperança!
           </span>
         </div>
@@ -92,21 +93,21 @@ export const Challenge8Message: React.FC<Challenge8Props> = ({
           <div className="relative">
             <textarea
               id="input-mensagem-final"
-              rows={6}
+              rows={5}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Digite aqui suas palavras de carinho, apoio fraterno e esperança..."
-              className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:bg-white leading-relaxed shadow-2xs transition-all"
+              className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-slate-900 placeholder-slate-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:bg-white leading-relaxed shadow-2xs transition-all font-medium"
             />
-            <div className="absolute bottom-3 right-4 text-xs text-slate-400 font-medium">
+            <div className="absolute bottom-3 right-4 text-xs text-slate-500 font-bold">
               {message.length} caracteres
             </div>
           </div>
 
           {/* Quick Emojis Palette */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t border-slate-100">
-            <span className="text-xs font-bold text-slate-600 flex items-center gap-1 mr-1">
-              <Smile className="w-3.5 h-3.5 text-amber-600" />
+          <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-slate-100">
+            <span className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1 mr-1">
+              <Smile className="w-4 h-4 text-amber-600" />
               <span>Inserir emojis:</span>
             </span>
             {["🌻", "💛", "✨", "🌟", "😊", "🤗", "🕊️", "☀️", "🤝", "💪", "🌈", "💖", "🙏", "💐", "🎉"].map((emoji) => (
@@ -114,7 +115,7 @@ export const Challenge8Message: React.FC<Challenge8Props> = ({
                 key={emoji}
                 type="button"
                 onClick={() => setMessage((prev) => prev + emoji)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-amber-100 border border-slate-200 hover:border-amber-300 text-base transition-transform active:scale-125 cursor-pointer shadow-2xs"
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white hover:bg-amber-100 border border-slate-300 hover:border-amber-400 text-lg transition-transform active:scale-125 cursor-pointer shadow-2xs"
                 title={`Inserir emoji ${emoji}`}
               >
                 {emoji}

@@ -338,6 +338,23 @@ async function startServer() {
       ? `${String(studentName).trim().toLowerCase()}_${String(studentClass || "").trim().toLowerCase()}`
       : "anon";
 
+    // O aluno não pode curtir sua própria mensagem
+    if (studentName) {
+      const cleanStudentName = String(studentName).trim().toLowerCase();
+      const cleanStudentClass = String(studentClass || "").trim().toLowerCase();
+      const isOwnMessage =
+        (msg.author || "").trim().toLowerCase() === cleanStudentName &&
+        (!cleanStudentClass || !msg.studentClass || msg.studentClass.trim().toLowerCase() === cleanStudentClass);
+
+      if (isOwnMessage) {
+        return res.status(403).json({
+          error: "Você não pode curtir sua própria mensagem. Curta os posts dos seus colegas!",
+          likes: msg.likes,
+          ownPost: true,
+        });
+      }
+    }
+
     if (studentKey !== "anon" && msg.likedBy.includes(studentKey)) {
       return res.status(400).json({
         error: "Você já curtiu esta mensagem!",

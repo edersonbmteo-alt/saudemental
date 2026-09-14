@@ -36,6 +36,7 @@ export interface StudentDataRecord {
   completed: boolean;
   startedAt: string;
   updatedAt: string;
+  lastUpdated?: string;
 }
 
 export interface SharedMessage {
