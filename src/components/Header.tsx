@@ -9,6 +9,7 @@ interface HeaderProps {
   onResetSession?: () => void;
   onGoToMural?: () => void;
   showMuralButton?: boolean;
+  onGoToStart?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onResetSession,
   onGoToMural,
   showMuralButton = false,
+  onGoToStart,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md shadow-xs transition-all">
@@ -25,13 +27,15 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-4">
         {/* Project Branding with Official Logo */}
         <div className="flex items-center gap-3.5">
-          <a
-            href="/"
-            className="flex items-center gap-2 transition-transform duration-200 hover:scale-[1.02]"
-            title="Colégio Franciscano Sant'Anna"
+          <button
+            type="button"
+            id="btn-logo-santanna-header"
+            onClick={onGoToStart}
+            className="flex items-center gap-2 transition-transform duration-200 hover:scale-[1.03] active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
+            title="Voltar ao início das etapas"
           >
             <SantAnnaLogo className="h-7 sm:h-8 w-auto" />
-          </a>
+          </button>
 
           <div className="h-7 w-px bg-slate-200/80 hidden sm:block" />
 

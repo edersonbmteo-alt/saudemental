@@ -251,6 +251,18 @@ export default function App() {
     setView("welcome");
   };
 
+  // Voltar para o início das etapas ao clicar no logo do Colégio Sant'Anna
+  const handleGoToStart = () => {
+    if (session) {
+      setCurrentStep(1);
+      setView("challenge");
+    } else {
+      setCurrentStep(1);
+      setView("welcome");
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-amber-400 selection:text-slate-950 modern-grid-bg">
       {/* Universal Header */}
@@ -260,6 +272,7 @@ export default function App() {
         onResetSession={session ? handleResetSession : undefined}
         onGoToMural={session?.completed || (session?.step && session.step > TOTAL_STEPS) ? () => setView("mural") : undefined}
         showMuralButton={Boolean(session?.completed || (session?.step && session.step > TOTAL_STEPS))}
+        onGoToStart={handleGoToStart}
       />
 
       {/* Main Mission Body */}
