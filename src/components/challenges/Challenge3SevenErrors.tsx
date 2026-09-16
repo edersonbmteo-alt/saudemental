@@ -8,6 +8,8 @@ import {
   Info,
 } from "lucide-react";
 import { Francisquinho } from "../Francisquinho";
+import sevenErrorsImg from "../../assets/images/seven_errors.jpg";
+import { getAssetUrl } from "../../utils/assetPath";
 
 interface Challenge3Props {
   onBack: () => void;
@@ -36,6 +38,9 @@ export const Challenge3SevenErrors: React.FC<Challenge3Props> = ({
     currentX: number;
     currentY: number;
   } | null>(null);
+  const [imageSrc, setImageSrc] = useState<string>(
+    sevenErrorsImg || getAssetUrl("/seven_errors.jpg")
+  );
 
   // Redesenha os círculos na tela de acordo com o tamanho atual do canvas
   const redrawCanvas = () => {
@@ -264,10 +269,23 @@ export const Challenge3SevenErrors: React.FC<Challenge3Props> = ({
         >
           {/* Imagem Base: Jogo dos 7 Erros */}
           <img
-            src="/seven_errors.jpg"
+            src={imageSrc}
             alt="Jogo dos 7 Erros - Comparação Setembro Amarelo"
             className="w-full h-full object-contain pointer-events-none select-none"
             draggable={false}
+            onError={() => {
+              const fallbackUrls = [
+                getAssetUrl("/seven_errors.jpg"),
+                getAssetUrl("seven_errors.jpg"),
+                "./seven_errors.jpg",
+                "seven_errors.jpg",
+                "/seven_errors.jpg",
+              ];
+              const nextUrl = fallbackUrls.find((url) => url && url !== imageSrc);
+              if (nextUrl) {
+                setImageSrc(nextUrl);
+              }
+            }}
           />
 
           {/* Canvas Interativo de Desenho por Cima */}
