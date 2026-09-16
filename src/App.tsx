@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { Header } from "./components/Header";
 import { ProgressBar } from "./components/ProgressBar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -12,7 +13,7 @@ import { Challenge7Qualities } from "./components/challenges/Challenge7Qualities
 import { Challenge8Message } from "./components/challenges/Challenge8Message";
 import { MuralView } from "./components/MuralView";
 import { TeacherModal } from "./components/TeacherModal";
-import { StudentSession } from "./types";
+import { StudentSession, CircleMarker } from "./types";
 import { api } from "./services/api";
 
 const TOTAL_STEPS = 8;
@@ -31,6 +32,7 @@ const STEP_TITLES = [
 export default function App() {
   const [session, setSession] = useState<StudentSession | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [view, setView] = useState<"welcome" | "challenge" | "mural">("welcome");
   const [isTeacherOpen, setIsTeacherOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,11 +40,14 @@ export default function App() {
   // Challenge responses state for local persistence & resume
   const [quizScore, setQuizScore] = useState("");
   const [quizDetails, setQuizDetails] = useState("");
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [sevenErrorsMarked, setSevenErrorsMarked] = useState(0);
+  const [sevenErrorsMarkers, setSevenErrorsMarkers] = useState<CircleMarker[]>([]);
   const [wordSearchFound, setWordSearchFound] = useState<string[]>([]);
   const [wordsGoodSelected, setWordsGoodSelected] = useState<string[]>([]);
   const [wordsGoodReflection, setWordsGoodReflection] = useState("");
   const [crosswordResult, setCrosswordResult] = useState("");
+  const [crosswordLetters, setCrosswordLetters] = useState<Record<string, string>>({});
   const [qualitiesSelected, setQualitiesSelected] = useState<string[]>([]);
   const [qualityRecognizedOwn, setQualityRecognizedOwn] = useState("");
   const [qualityToDevelop, setQualityToDevelop] = useState("");
@@ -53,39 +58,70 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [currentStep, view]);
 
-  // Check saved session in browser
+  // Helper para salvar cache detalhado de respostas no navegador
+  const cacheAnswers = (updates: Record<string, unknown>) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem("santanna_student_answers") || "{}");
+      const merged = { ...existing, ...updates };
+      localStorage.setItem("santanna_student_answers", JSON.stringify(merged));
+    } catch (e) {
+      console.warn("Could not cache answers", e);
+    }
+  };
+
+  // Check saved session and answers in browser
   useEffect(() => {
     try {
+      // 1. Restaura sessão do aluno
       const saved = localStorage.getItem("santanna_student_session");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.name && parsed.className) {
           setSession(parsed);
-          setCurrentStep(parsed.step || 1);
-          if (parsed.step > TOTAL_STEPS) {
+          const loadedStep = Number(parsed.step || 1);
+          const loadedMax = Number(parsed.maxStep || loadedStep);
+          setCurrentStep(loadedStep);
+          setMaxStepReached(Math.max(loadedMax, loadedStep));
+          if (loadedStep > TOTAL_STEPS || parsed.completed) {
             setView("mural");
           } else {
             setView("challenge");
           }
         }
       }
+
+      // 2. Restaura respostas salvas para NUNCA perder nada ao navegar ou clicar no logo
+      const savedAnswers = localStorage.getItem("santanna_student_answers");
+      if (savedAnswers) {
+        const p = JSON.parse(savedAnswers);
+        if (p.quizAnswers) setQuizAnswers(p.quizAnswers);
+        if (p.quizScore) setQuizScore(p.quizScore);
+        if (p.quizDetails) setQuizDetails(p.quizDetails);
+        if (typeof p.sevenErrorsMarked === "number") setSevenErrorsMarked(p.sevenErrorsMarked);
+        if (Array.isArray(p.sevenErrorsMarkers)) setSevenErrorsMarkers(p.sevenErrorsMarkers);
+        if (Array.isArray(p.wordSearchFound)) setWordSearchFound(p.wordSearchFound);
+        if (Array.isArray(p.wordsGoodSelected)) setWordsGoodSelected(p.wordsGoodSelected);
+        if (p.wordsGoodReflection) setWordsGoodReflection(p.wordsGoodReflection);
+        if (p.crosswordResult) setCrosswordResult(p.crosswordResult);
+        if (p.crosswordLetters) setCrosswordLetters(p.crosswordLetters);
+        if (Array.isArray(p.qualitiesSelected)) setQualitiesSelected(p.qualitiesSelected);
+        if (p.qualityRecognizedOwn) setQualityRecognizedOwn(p.qualityRecognizedOwn);
+        if (p.qualityToDevelop) setQualityToDevelop(p.qualityToDevelop);
+        if (p.finalMessage) setFinalMessage(p.finalMessage);
+      }
     } catch (e) {
       console.warn("Could not parse saved session", e);
     }
   }, []);
 
-  // Sempre começar em cima ao trocar de etapa
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-  }, [currentStep, view]);
-
-  // Sync session state to storage
+  // Sync session state to storage (garantindo que maxStep nunca diminui)
   const updateSessionStep = (nextStep: number) => {
     setCurrentStep(nextStep);
+    const newMax = Math.max(maxStepReached, nextStep);
+    setMaxStepReached(newMax);
+
     if (session) {
-      const updated = { ...session, step: nextStep };
+      const updated = { ...session, step: nextStep, maxStep: newMax };
       setSession(updated);
       try {
         localStorage.setItem("santanna_student_session", JSON.stringify(updated));
@@ -112,10 +148,12 @@ export default function App() {
         name: studentData.studentName,
         className: studentData.studentClass,
         step: 1,
+        maxStep: 1,
       };
 
       setSession(newSession);
       setCurrentStep(1);
+      setMaxStepReached(1);
       setView("challenge");
       localStorage.setItem("santanna_student_session", JSON.stringify(newSession));
     } finally {
@@ -123,45 +161,59 @@ export default function App() {
     }
   };
 
-  // Helper to save progress to server
+  // Helper to save progress to server & Firestore
   const saveProgress = async (partialData: Record<string, unknown>, nextStep?: number) => {
     if (!session) return;
     const targetStep = nextStep !== undefined ? nextStep : currentStep;
+    const safeMaxStep = Math.max(maxStepReached, targetStep);
 
     await api.saveProgress({
       studentId: session.id,
       studentName: session.name,
       studentClass: session.className,
-      currentStep: targetStep,
+      currentStep: safeMaxStep,
       ...partialData,
     });
   };
 
   // Step 1: Lou Intro -> Continue
   const handleContinueFrom1 = () => {
-    saveProgress({}, 2);
+    saveProgress({}, Math.max(maxStepReached, 2));
     updateSessionStep(2);
   };
 
   // Step 2: Quiz -> Continue
-  const handleContinueFrom2 = (score: string, details: string) => {
+  const handleContinueFrom2 = (score: string, details: string, answers?: Record<number, string>) => {
     setQuizScore(score);
     setQuizDetails(details);
-    saveProgress({ quizScore: score, quizDetails: details }, 3);
+    if (answers) {
+      setQuizAnswers(answers);
+      cacheAnswers({ quizScore: score, quizDetails: details, quizAnswers: answers });
+    } else {
+      cacheAnswers({ quizScore: score, quizDetails: details });
+    }
+    saveProgress({ quizScore: score, quizDetails: details }, Math.max(maxStepReached, 3));
     updateSessionStep(3);
   };
 
   // Step 3: 7 Erros -> Continue
-  const handleContinueFrom3 = (markedCount: number) => {
+  const handleContinueFrom3 = (markedCount: number, markers?: CircleMarker[]) => {
     setSevenErrorsMarked(markedCount);
-    saveProgress({ sevenErrorsMarked: markedCount }, 4);
+    if (markers) {
+      setSevenErrorsMarkers(markers);
+      cacheAnswers({ sevenErrorsMarked: markedCount, sevenErrorsMarkers: markers });
+    } else {
+      cacheAnswers({ sevenErrorsMarked: markedCount });
+    }
+    saveProgress({ sevenErrorsMarked: markedCount }, Math.max(maxStepReached, 4));
     updateSessionStep(4);
   };
 
   // Step 4: Caça-Palavras -> Continue
   const handleContinueFrom4 = (foundWords: string[]) => {
     setWordSearchFound(foundWords);
-    saveProgress({ wordSearchFound: foundWords }, 5);
+    cacheAnswers({ wordSearchFound: foundWords });
+    saveProgress({ wordSearchFound: foundWords }, Math.max(maxStepReached, 5));
     updateSessionStep(5);
   };
 
@@ -169,14 +221,21 @@ export default function App() {
   const handleContinueFrom5 = (words: string[], reflection: string) => {
     setWordsGoodSelected(words);
     setWordsGoodReflection(reflection);
-    saveProgress({ wordsGoodSelected: words, wordsGoodReflection: reflection }, 6);
+    cacheAnswers({ wordsGoodSelected: words, wordsGoodReflection: reflection });
+    saveProgress({ wordsGoodSelected: words, wordsGoodReflection: reflection }, Math.max(maxStepReached, 6));
     updateSessionStep(6);
   };
 
   // Step 6: Palavras Cruzadas -> Continue
-  const handleContinueFrom6 = (resultString: string) => {
+  const handleContinueFrom6 = (resultString: string, letters?: Record<string, string>) => {
     setCrosswordResult(resultString);
-    saveProgress({ crosswordResult: resultString }, 7);
+    if (letters) {
+      setCrosswordLetters(letters);
+      cacheAnswers({ crosswordResult: resultString, crosswordLetters: letters });
+    } else {
+      cacheAnswers({ crosswordResult: resultString });
+    }
+    saveProgress({ crosswordResult: resultString }, Math.max(maxStepReached, 7));
     updateSessionStep(7);
   };
 
@@ -189,13 +248,18 @@ export default function App() {
     setQualitiesSelected(qualities);
     setQualityRecognizedOwn(recognizedOwn);
     setQualityToDevelop(toDevelop);
+    cacheAnswers({
+      qualitiesSelected: qualities,
+      qualityRecognizedOwn: recognizedOwn,
+      qualityToDevelop: toDevelop,
+    });
     saveProgress(
       {
         qualitiesSelected: qualities,
         qualityRecognizedOwn: recognizedOwn,
         qualityToDevelop: toDevelop,
       },
-      8
+      Math.max(maxStepReached, 8)
     );
     updateSessionStep(8);
   };
@@ -207,6 +271,7 @@ export default function App() {
 
     try {
       setFinalMessage(msg);
+      cacheAnswers({ finalMessage: msg });
 
       // Post message with student author & class to shared mural
       await api.postMessage(msg, session.name, session.className);
@@ -232,8 +297,9 @@ export default function App() {
       });
 
       // Update session to completed
-      const completedSession = { ...session, step: 9 };
+      const completedSession = { ...session, step: 9, maxStep: 9, completed: true };
       setSession(completedSession);
+      setMaxStepReached(9);
       localStorage.setItem("santanna_student_session", JSON.stringify(completedSession));
 
       // Automatically open 🌻 MURAL DE MENSAGENS as strictly requested!
@@ -246,12 +312,29 @@ export default function App() {
   // Restart for a new student / clean session
   const handleResetSession = () => {
     localStorage.removeItem("santanna_student_session");
+    localStorage.removeItem("santanna_student_answers");
     setSession(null);
     setCurrentStep(1);
+    setMaxStepReached(1);
+    setQuizScore("");
+    setQuizDetails("");
+    setQuizAnswers({});
+    setSevenErrorsMarked(0);
+    setSevenErrorsMarkers([]);
+    setWordSearchFound([]);
+    setWordsGoodSelected([]);
+    setWordsGoodReflection("");
+    setCrosswordResult("");
+    setCrosswordLetters({});
+    setQualitiesSelected([]);
+    setQualityRecognizedOwn("");
+    setQualityToDevelop("");
+    setFinalMessage("");
     setView("welcome");
   };
 
   // Voltar para o início das etapas ao clicar no logo do Colégio Sant'Anna
+  // Preserva 100% das etapas, respostas e progresso já alcançado pelo aluno!
   const handleGoToStart = () => {
     if (session) {
       setCurrentStep(1);
@@ -286,12 +369,42 @@ export default function App() {
 
         {view === "challenge" && (
           <>
-            {/* Mission WebQuest Progress Bar */}
+            {/* Mission WebQuest Progress Bar com Navegação Interativa */}
             <ProgressBar
               currentStep={currentStep}
               totalSteps={TOTAL_STEPS}
               stepTitles={STEP_TITLES}
+              maxStepReached={maxStepReached}
+              onStepClick={(step) => updateSessionStep(step)}
             />
+
+            {/* Banner amigável quando o aluno está revendo uma etapa anterior */}
+            {maxStepReached > currentStep && (
+              <div className="w-full max-w-4xl mx-auto px-4 mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm font-medium shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      Você está revendo a <strong>Etapa {currentStep}</strong>. Todas as suas respostas anteriores continuam 100% salvas!
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (maxStepReached > TOTAL_STEPS) {
+                        setView("mural");
+                      } else {
+                        setCurrentStep(maxStepReached);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Retornar para Etapa {Math.min(maxStepReached, TOTAL_STEPS)}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Active Challenge Screen */}
             {currentStep === 1 && (
@@ -302,6 +415,8 @@ export default function App() {
               <Challenge2Quiz
                 onBack={() => updateSessionStep(1)}
                 onContinue={handleContinueFrom2}
+                initialAnswers={quizAnswers}
+                initialSubmitted={Boolean(quizScore)}
               />
             )}
 
@@ -310,6 +425,7 @@ export default function App() {
                 onBack={() => updateSessionStep(2)}
                 onContinue={handleContinueFrom3}
                 initialMarkedCount={sevenErrorsMarked}
+                initialMarkers={sevenErrorsMarkers}
               />
             )}
 
@@ -334,6 +450,7 @@ export default function App() {
               <Challenge6Crossword
                 onBack={() => updateSessionStep(5)}
                 onContinue={handleContinueFrom6}
+                initialAnswers={crosswordLetters}
               />
             )}
 
@@ -384,7 +501,7 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Discreet Teacher Modal */}
+      {/* Teacher Dashboard Access Modal */}
       <TeacherModal
         isOpen={isTeacherOpen}
         onClose={() => setIsTeacherOpen(false)}

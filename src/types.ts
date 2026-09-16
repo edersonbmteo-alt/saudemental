@@ -3,6 +3,14 @@ export interface StudentSession {
   name: string;
   className: string;
   step: number;
+  maxStep?: number;
+  completed?: boolean;
+}
+
+export interface CircleMarker {
+  xPercent: number;
+  yPercent: number;
+  radiusPercent: number;
 }
 
 export interface QuizQuestion {

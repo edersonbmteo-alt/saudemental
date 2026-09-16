@@ -5,14 +5,18 @@ interface ProgressBarProps {
   currentStep: number;
   totalSteps: number;
   stepTitles: string[];
+  maxStepReached?: number;
+  onStepClick?: (step: number) => void;
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   currentStep,
   totalSteps,
   stepTitles,
+  maxStepReached = currentStep,
+  onStepClick,
 }) => {
-  const percentage = Math.round((currentStep / totalSteps) * 100);
+  const percentage = Math.round((Math.max(currentStep, maxStepReached) / totalSteps) * 100);
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-3 mb-4">
@@ -45,20 +49,37 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           const stepNum = i + 1;
           const isDone = stepNum < currentStep;
           const isCurrent = stepNum === currentStep;
+          const isUnlocked = stepNum <= maxStepReached;
+          const canClick = isUnlocked && !isCurrent && Boolean(onStepClick);
           const fullTitle = stepTitles[i] || `Etapa ${stepNum}`;
 
           return (
-            <div
+            <button
               key={stepNum}
-              className="flex flex-col items-center group relative max-w-[85px]"
-              title={`Etapa ${stepNum}: ${fullTitle}`}
+              type="button"
+              disabled={!canClick}
+              onClick={() => canClick && onStepClick?.(stepNum)}
+              className={`flex flex-col items-center group relative max-w-[85px] transition-transform ${
+                canClick
+                  ? "cursor-pointer hover:scale-105 active:scale-95"
+                  : isCurrent
+                  ? "cursor-default"
+                  : "cursor-not-allowed opacity-50"
+              }`}
+              title={
+                canClick
+                  ? `Ir para Etapa ${stepNum}: ${fullTitle}`
+                  : `Etapa ${stepNum}: ${fullTitle}`
+              }
             >
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${
                   isDone
-                    ? "bg-[#005CA9] text-white shadow-xs"
+                    ? "bg-[#005CA9] text-white shadow-xs group-hover:ring-2 group-hover:ring-sky-300"
                     : isCurrent
                     ? "bg-amber-400 text-slate-950 font-extrabold ring-4 ring-amber-200 scale-110 shadow-sm"
+                    : isUnlocked
+                    ? "bg-amber-100 text-amber-900 border border-amber-300 group-hover:bg-amber-200"
                     : "bg-slate-200 text-slate-500"
                 }`}
               >
@@ -70,12 +91,14 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     ? "text-slate-900 font-bold"
                     : isDone
                     ? "text-[#005CA9]"
+                    : isUnlocked
+                    ? "text-amber-800"
                     : "text-slate-400"
                 }`}
               >
                 {fullTitle}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>

@@ -11,26 +11,28 @@ import { Francisquinho } from "../Francisquinho";
 import sevenErrorsImg from "../../assets/images/seven_errors.jpg";
 import { getAssetUrl } from "../../utils/assetPath";
 
-interface Challenge3Props {
-  onBack: () => void;
-  onContinue: (markedCount: number) => void;
-  initialMarkedCount?: number;
-}
-
-interface CircleMarker {
+export interface CircleMarker {
   xPercent: number;
   yPercent: number;
   radiusPercent: number;
+}
+
+interface Challenge3Props {
+  onBack: () => void;
+  onContinue: (markedCount: number, markers?: CircleMarker[]) => void;
+  initialMarkedCount?: number;
+  initialMarkers?: CircleMarker[];
 }
 
 export const Challenge3SevenErrors: React.FC<Challenge3Props> = ({
   onBack,
   onContinue,
   initialMarkedCount = 0,
+  initialMarkers = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [markers, setMarkers] = useState<CircleMarker[]>([]);
+  const [markers, setMarkers] = useState<CircleMarker[]>(initialMarkers);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentCircle, setCurrentCircle] = useState<{
     startX: number;
@@ -199,7 +201,7 @@ export const Challenge3SevenErrors: React.FC<Challenge3Props> = ({
   };
 
   const handleFinish = () => {
-    onContinue(markers.length);
+    onContinue(markers.length, markers);
   };
 
   return (

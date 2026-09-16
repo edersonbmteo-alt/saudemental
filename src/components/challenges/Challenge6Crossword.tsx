@@ -4,7 +4,7 @@ import { Francisquinho } from "../Francisquinho";
 
 interface Challenge6Props {
   onBack: () => void;
-  onContinue: (resultString: string) => void;
+  onContinue: (resultString: string, letters?: Record<string, string>) => void;
   initialAnswers?: Record<string, string>;
 }
 
@@ -199,7 +199,7 @@ export const Challenge6Crossword: React.FC<Challenge6Props> = ({
 
   const handleFinish = () => {
     const resultString = `${correctCount}/${CROSSWORD_CELLS.length} letras certas`;
-    onContinue(resultString);
+    onContinue(resultString, userLetters);
   };
 
   return (

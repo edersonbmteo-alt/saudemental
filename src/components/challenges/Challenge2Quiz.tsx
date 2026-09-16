@@ -265,17 +265,21 @@ const QUESTIONS: QuizQuestion[] = [
 
 interface Challenge2Props {
   onBack: () => void;
-  onContinue: (scoreString: string, details: string) => void;
+  onContinue: (scoreString: string, details: string, answers?: Record<number, string>) => void;
   initialAnswers?: Record<number, string>;
+  initialSubmitted?: boolean;
 }
 
 export const Challenge2Quiz: React.FC<Challenge2Props> = ({
   onBack,
   onContinue,
   initialAnswers = {},
+  initialSubmitted = false,
 }) => {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(initialAnswers);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(
+    initialSubmitted || (Object.keys(initialAnswers).length === QUESTIONS.length)
+  );
 
   const handleSelect = (questionId: number, optionId: string) => {
     if (isSubmitted) return;
@@ -313,7 +317,7 @@ export const Challenge2Quiz: React.FC<Challenge2Props> = ({
       return `Q${q.id}: ${opt?.isCorrect ? "Correto" : "Incorreto"} (${opt?.text.slice(0, 35)}...)`;
     }).join(" | ");
 
-    onContinue(scoreString, details);
+    onContinue(scoreString, details, selectedAnswers);
   };
 
   const scoreInfo = isSubmitted ? calculateScore() : null;
